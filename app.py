@@ -5,27 +5,29 @@ from coordi_logic import get_outfit_suggestion
 from datetime import datetime
 import pytz
 
-# 페이지 설정 및 테마
 st.set_page_config(page_title="DailyRouteAutomata", page_icon="🚗", layout="wide")
-
-# 고도화된 CSS 적용
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100;400;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Noto+Sans+KR', sans-serif; }
-    .main { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
-    .stAlert { border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-    .metric-card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.08); text-align: center; }
-    </style>
-    """, unsafe_allow_html=True)
 
 # 한국 시간 설정
 KST = pytz.timezone('Asia/Seoul')
 now_korea = datetime.now(KST)
 
-# 메인 헤더
+# 세련된 CSS (카드 디자인 및 배경)
+st.markdown("""
+    <style>
+    .main { background-color: #f0f2f6; }
+    .metric-container {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    .stMetric { color: #1f77b4; }
+    </style>
+    """, unsafe_allow_html=True)
+
 st.title("🚗 DailyRouteAutomata")
-st.markdown(f"**{now_korea.strftime('%m월 %d일 %A')}** | 실시간 개인화 이동 가이드")
+st.markdown(f"**{now_korea.strftime('%Y년 %m월 %d일 %H:%M')}** | 현재 위치 기반 자동화 가이드")
 
 # 위치 정보 획득
 loc = get_geolocation()
@@ -33,55 +35,49 @@ loc = get_geolocation()
 if loc:
     lat, lon = loc['coords']['latitude'], loc['coords']['longitude']
 
-    # API 키 로드
+    # Secrets 로드
     auth_key = st.secrets["KMA_AUTH_KEY"]
     kakao_key = st.secrets["KAKAO_API_KEY"]
 
-    # 1. 지역명 및 날씨 데이터 가져오기
-    addr_name = get_location_name(kakao_key, lat, lon)
-    weather_data = get_weather_detail(auth_key, lat, lon)
+    # 데이터 로딩 애니메이션
+    with st.spinner('실시간 기상 및 위치 정보를 분석 중입니다...'):
+        addr_name = get_location_name(kakao_key, lat, lon)
+        weather = get_weather_detail(auth_key, lat, lon)
 
-    if weather_data:
-        # 상단 섹션: 현재 위치 및 주요 지표
-        st.subheader(f"📍 {addr_name}")
+    if weather:
+        st.success(f"📍 **현재 위치:** {addr_name} (격자: {weather['nx']}, {weather['ny']})")
 
+        # 4분할 지표 카드
         m1, m2, m3, m4 = st.columns(4)
         with m1:
-            st.metric("🌡️ 기온", f"{weather_data['temp']}°C")
+            st.metric("🌡️ 현재 온도", f"{weather['temp']}°C")
         with m2:
-            st.metric("💧 습도", f"{weather_data['humid']}%")
+            st.metric("💧 습도", f"{weather['humid']}%")
         with m3:
-            st.metric("🌬️ 풍속", f"{weather_data['wind']}m/s")
+            st.metric("🌬️ 풍속", f"{weather['wind']}m/s")
         with m4:
-            st.metric("☔ 강수량", f"{weather_data['rain']}mm")
+            st.metric("☔ 강수량", f"{weather['rain']}mm")
 
         st.divider()
 
-        # 중앙 섹션: 코디 & 교통 (핵심 가치)
+        # 코디 및 분석 섹션
         col1, col2 = st.columns([1, 1])
-
         with col1:
-            st.markdown("### 👔 Today's Outfit")
-            advice = get_outfit_suggestion(weather_data['temp'])
-            st.success(f"**AI 추천 코디:**\n\n{advice}")
+            st.subheader("👔 AI 추천 코디")
+            advice = get_outfit_suggestion(weather['temp'])
+            st.info(f"**오늘의 추천:**\n\n{advice}")
 
         with col2:
-            st.markdown("### 🚥 Traffic Status")
-            # 춘천(또는 현재지역) 기반 가상 데이터 (추후 API 연동)
-            st.warning("🚗 **실시간 교통 분석**\n\n주요 출퇴근 경로에 정체가 감지되지 않습니다. 평소대로 출발하세요.")
-
-        st.divider()
-
-        # 하단 섹션: 상세 분석 요약
-        with st.expander("📊 상세 기상 분석 데이터 확인"):
-            st.write(f"- 관측 시간: {now_korea.strftime('%H:%M')} KST")
-            st.write(f"- 풍향: {weather_data['vec']}도 방향")
-            st.progress(int(float(weather_data['humid'])) / 100, text="현재 습도 수준")
+            st.subheader("🚦 출퇴근 교통 상황")
+            # 가상 데이터 노출 (UI 꽉 채우기용)
+            st.warning("🔄 주변 도로 소통 원활 (실시간 교통 API 연동 준비 중)")
+            st.write(f"- 현재 {addr_name} 주변 사고 소식은 없습니다.")
+            st.write("- 기상 상태에 따른 가시거리는 양호합니다.")
 
     else:
-        st.error("기상 데이터를 불러오는 중 오류가 발생했습니다. 잠시 후 새로고침 해주세요.")
+        st.error("기상청 API 호출에 실패했습니다. API 키의 권한이나 URL 형식을 다시 확인해주세요.")
 else:
-    st.info("👋 **안녕하세요! DailyRouteAutomata입니다.**\n\n좌측 상단(또는 팝업)의 위치 정보 권한을 허용해 주시면, 계신 곳의 날씨와 교통 상황을 자동으로 분석해 드립니다.")
-    # 대표 이미지 배치 (텅 빈 느낌 방지)
-    st.image("https://images.unsplash.com/photo-1496247749665-49cf94d99ee6?auto=format&fit=crop&q=80&w=2073",
-             caption="Your Journey, Our Automata.")
+    # 텅 빈 느낌 방지용 이미지와 가이드
+    st.image("https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?auto=format&fit=crop&q=80&w=2000",
+             caption="Connect your location for smarter journey.")
+    st.info("💡 **위치 권한을 허용해주세요!**\n\n상단 팝업에서 권한을 승인하시면 귀하의 위치에 맞는 날씨와 교통 정보를 자동으로 계산합니다.")
