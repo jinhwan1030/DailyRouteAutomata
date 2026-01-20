@@ -6,23 +6,19 @@ import pytz
 
 
 def get_location_name(kakao_key, lat, lon):
-    """카카오 로컬 API 호출 (403 방지를 위해 헤더 형식 엄격 적용)"""
     url = f"https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x={lon}&y={lat}"
-    # KakaoAK와 키 사이의 한 칸 공백이 중요합니다.
+    # 403 에러 방지를 위해 KakaoAK 뒤 공백 유지 및 strip() 처리
     headers = {"Authorization": f"KakaoAK {kakao_key.strip()}"}
-
     try:
         res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
-            doc = res.json().get('documents', [])
-            return doc[0]['address_name'] if doc else "위치 정보 없음"
-        return f"API 오류({res.status_code})"
+            return res.json()['documents'][0]['address_name']
+        return f"지역 식별 오류({res.status_code})"
     except:
-        return "연결 실패"
+        return "연결 지연"
 
 
 def convert_to_grid(lat, lon):
-    # 기상청 공식 위경도 -> 격자 변환 (이전과 동일)
     RE, GRID, SLAT1, SLAT2, OLON, OLAT, XO, YO = 6371.00877, 5.0, 30.0, 60.0, 126.0, 38.0, 43, 136
     DEGRAD = math.pi / 180.0
     re = RE / GRID
@@ -64,7 +60,6 @@ def get_weather_detail(auth_key, lat, lon):
             'rain': items.get('RN1', '0'),
             'humid': items.get('REH', '0'),
             'wind': items.get('WSD', '0'),
-            'vec': items.get('VEC', '0'),
             'nx': nx, 'ny': ny
         }
     except:
