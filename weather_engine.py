@@ -4,9 +4,9 @@ from datetime import datetime
 
 
 def get_weather_data(auth_key, lat, lon):
-    # 좌표 변환 로직 (실제 기상청 격자 좌표 nx, ny 변환 필요)
-    # 여기서는 예시로 고정 좌표를 사용하거나 변환 함수를 추가할 수 있습니다.
-    nx, ny = 73, 134  # 춘천 기준 예시
+    # 기상청 격자 좌표 변환 (간이 로직: 춘천 기준 73, 134)
+    # 실제 운영 시 위도/경도를 nx, ny로 변환하는 공식 함수가 필요합니다.
+    nx, ny = 73, 134
 
     url = "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getUltraSrtNcst"
     params = {
@@ -22,20 +22,21 @@ def get_weather_data(auth_key, lat, lon):
 
     try:
         response = requests.get(url, params=params)
-        root = ET.from_those(response.content)
+        root = ET.fromstring(response.content)
 
-        # XML 데이터 파싱
-        weather_dict = {}
+        data_dict = {}
         for item in root.findall('.//item'):
             category = item.find('category').text
             value = item.find('obsrValue').text
-            weather_dict[category] = value
+            data_dict[category] = value
 
         return {
-            'temp': weather_dict.get('T1H', '0'),
-            'humidity': weather_dict.get('REH', '0'),
-            'rain': weather_dict.get('RN1', '0'),
-            'base_time': params['base_time']
+            'temp': data_dict.get('T1H', '0'),
+            'humidity': data_dict.get('REH', '0'),
+            'rain': data_dict.get('RN1', '0'),
+            'base_time': params['base_time'],
+            'location_name': "사용자 근처 측정소"
         }
-    except:
+    except Exception as e:
+        print(f"Error: {e}")
         return None
