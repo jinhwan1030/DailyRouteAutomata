@@ -1,42 +1,53 @@
 import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime
+import math
 
 
-def get_weather_data(auth_key, lat, lon):
-    # 기상청 격자 좌표 변환 (간이 로직: 춘천 기준 73, 134)
-    # 실제 운영 시 위도/경도를 nx, ny로 변환하는 공식 함수가 필요합니다.
-    nx, ny = 73, 134
+# 기상청 공식: 위경도 -> 격자 좌표 변환
+def convert_to_grid(lat, lon):
+    RE, GRID, SLAT1, SLAT2, OLON, OLAT, XO, YO = 6371.00877, 5.0, 30.0, 60.0, 126.0, 38.0, 43, 136
+    DEGRAD = math.pi / 180.0
+    re = RE / GRID
+    slat1, slat2, olon, olat = SLAT1 * DEGRAD, SLAT2 * DEGRAD, OLON * DEGRAD, OLAT * DEGRAD
+    sn = math.log(math.cos(slat1) / math.cos(slat2)) / math.log(
+        math.tan(math.pi * 0.25 + slat2 * 0.5) / math.tan(math.pi * 0.25 + slat1 * 0.5))
+    sf = math.pow(math.tan(math.pi * 0.25 + slat1 * 0.5), sn) * math.cos(slat1) / sn
+    ro = re * sf / math.pow(math.tan(math.pi * 0.25 + olat * 0.5), sn)
+    ra = re * sf / math.pow(math.tan(math.pi * 0.25 + lat * DEGRAD * 0.5), sn)
+    theta = lon * DEGRAD - olon
+    if theta > math.pi: theta -= 2.0 * math.pi
+    if theta < -math.pi: theta += 2.0 * math.pi
+    theta *= sn
+    nx = math.floor(ra * math.sin(theta) + XO + 0.5)
+    ny = math.floor(ro - ra * math.cos(theta) + YO + 0.5)
+    return nx, ny
 
+
+def get_weather_detail(auth_key, lat, lon):
+    nx, ny = convert_to_grid(lat, lon)
     url = "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getUltraSrtNcst"
     params = {
-        'pageNo': '1',
-        'numOfRows': '1000',
-        'dataType': 'XML',
+        'pageNo': '1', 'numOfRows': '1000', 'dataType': 'XML',
         'base_date': datetime.now().strftime('%Y%m%d'),
         'base_time': datetime.now().strftime('%H00'),
-        'nx': nx,
-        'ny': ny,
-        'authKey': auth_key
+        'nx': nx, 'ny': ny, 'authKey': auth_key
     }
 
     try:
-        response = requests.get(url, params=params)
-        root = ET.fromstring(response.content)
+        res = requests.get(url, params=params)
+        root = ET.fromstring(res.content)
+        items = {item.find('category').text: item.find('obsrValue').text for item in root.findall('.//item')}
 
-        data_dict = {}
-        for item in root.findall('.//item'):
-            category = item.find('category').text
-            value = item.find('obsrValue').text
-            data_dict[category] = value
-
+        # 상세 데이터 매핑
         return {
-            'temp': data_dict.get('T1H', '0'),
-            'humidity': data_dict.get('REH', '0'),
-            'rain': data_dict.get('RN1', '0'),
-            'base_time': params['base_time'],
-            'location_name': "사용자 근처 측정소"
+            'temp': items.get('T1H'),
+            'rain': items.get('RN1'),
+            'humid': items.get('REH'),
+            'wind': items.get('WSD'),
+            'vec': items.get('VEC'),
+            'nx': nx, 'ny': ny,
+            'time': params['base_time']
         }
-    except Exception as e:
-        print(f"Error: {e}")
+    except:
         return None
