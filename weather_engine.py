@@ -26,16 +26,17 @@ def convert_to_grid(lat, lon):
 
 
 def get_location_name(kakao_key, lat, lon):
-    """카카오 로컬 API: 위경도 -> 행정구역 명칭"""
     url = f"https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x={lon}&y={lat}"
     headers = {"Authorization": f"KakaoAK {kakao_key}"}
     try:
         res = requests.get(url, headers=headers)
         if res.status_code == 200:
-            return res.json()['documents'][0]['address_name']
-        return "알 수 없는 지역"
+            doc = res.json()['documents']
+            # 행정동 주소가 없을 경우 전체 주소로 대체
+            return doc[0]['address_name'] if doc else "위치 식별 불가"
+        return "API 호출 오류"
     except:
-        return "위치 검색 실패"
+        return "위치 정보 접근 불가"
 
 
 def get_weather_detail(auth_key, lat, lon):
