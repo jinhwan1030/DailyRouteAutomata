@@ -6,9 +6,11 @@ import pytz
 
 
 def get_location_name(kakao_key, lat, lon):
-    """카카오 API: 위경도 -> 행정구역 명칭 (일일 30만건 무료)"""
+    """카카오 로컬 API 호출 (403 방지를 위해 헤더 형식 엄격 적용)"""
     url = f"https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x={lon}&y={lat}"
-    headers = {"Authorization": f"KakaoAK {kakao_key}"}
+    # KakaoAK와 키 사이의 한 칸 공백이 중요합니다.
+    headers = {"Authorization": f"KakaoAK {kakao_key.strip()}"}
+
     try:
         res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
@@ -20,7 +22,7 @@ def get_location_name(kakao_key, lat, lon):
 
 
 def convert_to_grid(lat, lon):
-    """기상청 공식 위경도 -> 격자(nx, ny) 변환"""
+    # 기상청 공식 위경도 -> 격자 변환 (이전과 동일)
     RE, GRID, SLAT1, SLAT2, OLON, OLAT, XO, YO = 6371.00877, 5.0, 30.0, 60.0, 126.0, 38.0, 43, 136
     DEGRAD = math.pi / 180.0
     re = RE / GRID
@@ -44,34 +46,26 @@ def get_weather_detail(auth_key, lat, lon):
     KST = pytz.timezone('Asia/Seoul')
     now = datetime.now(KST)
 
-    # 초단기실황 API URL (사용자 제공 형식 반영)
     url = "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getUltraSrtNcst"
     params = {
-        'pageNo': '1',
-        'numOfRows': '100',
-        'dataType': 'XML',
+        'pageNo': '1', 'numOfRows': '100', 'dataType': 'XML',
         'base_date': now.strftime('%Y%m%d'),
         'base_time': now.strftime('%H00'),
-        'nx': str(nx),
-        'ny': str(ny),
-        'authKey': auth_key
+        'nx': str(nx), 'ny': str(ny),
+        'authKey': auth_key.strip()
     }
 
     try:
         res = requests.get(url, params=params, timeout=10)
-        if res.status_code == 200:
-            root = ET.fromstring(res.content)
-            # 결과 코드 확인 (00: 정상)
-            res_code = root.find('.//resultCode')
-            if res_code is not None and res_code.text == '00':
-                items = {item.find('category').text: item.find('obsrValue').text for item in root.findall('.//item')}
-                return {
-                    'temp': items.get('T1H', '0'),
-                    'rain': items.get('RN1', '0'),
-                    'humid': items.get('REH', '0'),
-                    'wind': items.get('WSD', '0'),
-                    'nx': nx, 'ny': ny
-                }
-        return None
+        root = ET.fromstring(res.content)
+        items = {item.find('category').text: item.find('obsrValue').text for item in root.findall('.//item')}
+        return {
+            'temp': items.get('T1H', '0'),
+            'rain': items.get('RN1', '0'),
+            'humid': items.get('REH', '0'),
+            'wind': items.get('WSD', '0'),
+            'vec': items.get('VEC', '0'),
+            'nx': nx, 'ny': ny
+        }
     except:
         return None
