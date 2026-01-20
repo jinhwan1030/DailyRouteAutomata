@@ -1,23 +1,41 @@
 import requests
+import xml.etree.ElementTree as ET
 from datetime import datetime
 
 
-def get_current_weather(auth_key, nx=73, ny=134):
-    # API HUB 초단기실황 엔드포인트
-    url = "https://apihub.kma.go.kr/api/typ01/url/kma_sfct_tm.do"
+def get_weather_data(auth_key, lat, lon):
+    # 좌표 변환 로직 (실제 기상청 격자 좌표 nx, ny 변환 필요)
+    # 여기서는 예시로 고정 좌표를 사용하거나 변환 함수를 추가할 수 있습니다.
+    nx, ny = 73, 134  # 춘천 기준 예시
 
+    url = "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getUltraSrtNcst"
     params = {
-        'tm': datetime.now().strftime('%Y%m%d%H%M'),
-        'authKey': auth_key,
-        'help': '0'
+        'pageNo': '1',
+        'numOfRows': '1000',
+        'dataType': 'XML',
+        'base_date': datetime.now().strftime('%Y%m%d'),
+        'base_time': datetime.now().strftime('%H00'),
+        'nx': nx,
+        'ny': ny,
+        'authKey': auth_key
     }
 
     try:
         response = requests.get(url, params=params)
-        # API HUB의 응답 형식에 따라 파싱 로직은 달라질 수 있습니다.
-        # 여기서는 성공 여부만 체크하는 기본 구조를 제시합니다.
-        if response.status_code == 200:
-            return response.text  # 실제 데이터 구조에 맞게 슬라이싱 필요
-        return None
+        root = ET.from_those(response.content)
+
+        # XML 데이터 파싱
+        weather_dict = {}
+        for item in root.findall('.//item'):
+            category = item.find('category').text
+            value = item.find('obsrValue').text
+            weather_dict[category] = value
+
+        return {
+            'temp': weather_dict.get('T1H', '0'),
+            'humidity': weather_dict.get('REH', '0'),
+            'rain': weather_dict.get('RN1', '0'),
+            'base_time': params['base_time']
+        }
     except:
         return None
