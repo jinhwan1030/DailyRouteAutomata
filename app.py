@@ -1,28 +1,48 @@
 import streamlit as st
 from streamlit_js_eval import get_geolocation
-from weather_engine import get_weather_detail
+from weather_engine import get_weather_detail, get_location_name
 from coordi_logic import get_outfit_suggestion
+from datetime import datetime
+import pytz
 
-st.set_page_config(page_title="DailyRouteAutomata", layout="wide")
+# 프로젝트 설정
+st.set_page_config(page_title="DailyRouteAutomata", page_icon="🤖", layout="wide")
 
-# 위치 정보 획득 및 로컬 세션 유지
+# 한국 시간대 설정
+KST = pytz.timezone('Asia/Seoul')
+now_korea = datetime.now(KST)
+
+# CSS 스타일 적용
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stMetric { background-color: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("🤖 DailyRouteAutomata")
+
+# 위치 정보 획득
 loc = get_geolocation()
 
 if loc:
     lat, lon = loc['coords']['latitude'], loc['coords']['longitude']
-    # 실무 팁: 춘천시, 의정부시 등 지역명은 카카오/구글 역지오코딩 API가 필요하나,
-    # 우선은 격자 좌표(nx, ny)를 명시하여 신뢰도를 줍니다.
 
+    # Secrets에서 키 로드
     auth_key = st.secrets["KMA_AUTH_KEY"]
+    kakao_key = st.secrets["KAKAO_API_KEY"]
+
+    # 1. 지역명 및 날씨 데이터 가져오기
+    addr_name = get_location_name(kakao_key, lat, lon)
     data = get_weather_detail(auth_key, lat, lon)
 
     if data:
-        st.title(f"🤖 DailyRouteAutomata")
-        st.success(f"📍 현재 측정 위치: 격자 좌표 ({data['nx']}, {data['ny']}) 기반 실시간 정보")
+        st.subheader(f"📍 {addr_name} 실시간 가이드")
+        st.caption(f"데이터 업데이트: {now_korea.strftime('%Y-%m-%d %H:%M')} (KST)")
 
-        # 상세 기상 대시보드
+        # 4분할 대시보드
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("기온", f"{data['temp']}°C")
+        m1.metric("현재 기온", f"{data['temp']}°C")
         m2.metric("습도", f"{data['humid']}%")
         m3.metric("풍속", f"{data['wind']}m/s")
         m4.metric("강수량", f"{data['rain']}mm")
@@ -31,19 +51,18 @@ if loc:
 
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("👔 추천 옷차림")
+            st.subheader("👔 AI 코디 추천")
             st.info(get_outfit_suggestion(data['temp']))
 
         with col2:
             st.subheader("📝 기상 분석 보고")
-            wind_dir = "북풍" if float(data['vec']) < 45 else "서풍"  # 간이 로직
-            st.write(f"- 현재 **{data['time']}** 기준, 실시간 기온은 **{data['temp']}도**입니다.")
-            st.write(f"- **{wind_dir}**이 불고 있으며 습도는 **{data['humid']}%**로 기록됩니다.")
             if float(data['rain']) > 0:
-                st.write("- 🌧️ 현재 비가 내리고 있으니 반드시 우산을 지참하세요.")
+                st.warning("☔ 현재 비/눈이 감지되었습니다. 외출 시 우산을 꼭 챙기세요!")
             else:
-                st.write("- ☀️ 강수 정보가 없어 야외 활동에 지장이 없습니다.")
+                st.success("☀️ 현재 강수 정보가 없습니다. 가벼운 외출이 가능합니다.")
+
+            st.write(f"- 현재 습도가 **{data['humid']}%**로 기록되어 쾌적도를 확인하세요.")
     else:
-        st.error("기상청 데이터를 분석할 수 없습니다. 잠시 후 다시 시도해 주세요.")
+        st.error("기상 데이터를 불러오는 중입니다. API 키를 확인해주세요.")
 else:
-    st.warning("위치 권한을 허용하시면 사용자의 위치를 자동으로 저장하고 가이드를 생성합니다.")
+    st.warning("위치 권한을 허용하시면 현재 계신 곳의 행정구역 정보를 자동으로 불러옵니다.")
