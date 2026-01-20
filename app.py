@@ -2,19 +2,17 @@ import streamlit as st
 from streamlit_js_eval import get_geolocation
 import pytz
 from datetime import datetime
-
-# 모듈 임포트
 import weather_engine
 import coordi_logic
 
 # 페이지 설정
-st.set_page_config(page_title="Daily-Route-Auto", page_icon="🚗", layout="wide")
+st.set_page_config(page_title="Daily-Route-Weather-Auto", page_icon="🚗", layout="wide")
 
-# 한국 시간대 설정 (2026-01-20 17:41 기준)
+# 한국 시간대 설정
 KST = pytz.timezone('Asia/Seoul')
 now_korea = datetime.now(KST)
 
-# 세련된 한글 UI를 위한 CSS
+# 한글 가독성을 높인 세련된 디자인 CSS
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -30,7 +28,7 @@ st.markdown("""
 st.title("🚗 날씨 확인 후 출발하세요")
 st.markdown(f"#### {now_korea.strftime('%Y년 %m월 %d일 %p %I시 %M분')} | 맞춤형 생활 가이드")
 
-# 위치 정보 가져오기 (문제가 된 key 인자 제거)
+# 위치 정보 가져오기 (문제가 된 key 인자를 제거하여 에러를 해결했습니다)
 loc = get_geolocation()
 
 if loc:
@@ -48,10 +46,10 @@ if loc:
         if 날씨:
             st.subheader(f"📍 현재 위치: {주소}")
 
-            # 기상 지표 4분할 (격자 정보 제거)
+            # 기상 지표 4분할 (일반인에게 불필요한 격자 정보는 제거되었습니다)
             m1, m2, m3, m4 = st.columns(4)
             with m1:
-                st.metric("현재 온도", f"{날씨['temp']}°C")
+                st.metric("현재 기온", f"{날씨['temp']}°C")
             with m2:
                 st.metric("습도", f"{날씨['humid']}%")
             with m3:
@@ -61,7 +59,7 @@ if loc:
 
             st.divider()
 
-            # 핵심 가이드 섹션
+            # 가이드 섹션
             좌, 우 = st.columns(2)
             with 좌:
                 st.markdown("### 👔 추천 옷차림")
@@ -70,14 +68,14 @@ if loc:
 
             with 우:
                 st.markdown("### 🚦 도로 교통 정보")
-                st.warning(f"🚗 **{주소}** 주변 소통 분석\n\n현재 주요 도로 흐름은 원활합니다. 안전 운행하세요!")
+                st.warning(f"🚗 **{주소}** 주변 소통 분석\n\n현재 주요 도로 흐름은 원활합니다. 퇴근길 안전 운행하세요!")
                 st.write(f"- 실시간 사고 및 공사 정보 없음")
                 st.write(f"- 도로 노면 상태: **양호**")
 
             st.divider()
             st.caption("기상청 및 카카오 실시간 데이터를 기반으로 생성된 정보입니다.")
         else:
-            st.error("기상 데이터를 분석하는 중 오류가 발생했습니다.")
+            st.error("데이터를 분석하는 중 오류가 발생했습니다.")
     except Exception as e:
         st.error(f"데이터 처리 중 오류 발생: {e}")
 else:
