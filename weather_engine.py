@@ -22,7 +22,7 @@ def convert_to_grid(lat, lon):
     return nx, ny
 
 def get_location_name(kakao_key, lat, lon):
-    """카카오 API를 통한 주소 획득"""
+    """카카오 API를 통해 시/군/구/읍면동 주소 획득"""
     url = f"https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x={lon}&y={lat}"
     headers = {"Authorization": f"KakaoAK {kakao_key.strip()}"}
     try:
